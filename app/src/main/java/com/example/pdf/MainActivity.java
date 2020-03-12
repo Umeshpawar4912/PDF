@@ -12,6 +12,7 @@ import android.graphics.Paint;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
@@ -20,150 +21,187 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
     private Button btn, btnScroll;
     private LinearLayout llPdf;
     private Bitmap bitmap;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        btn = findViewById(R.id.btn);
-        btnScroll = findViewById(R.id.btnScroll);
-        llPdf = findViewById(R.id.llPdf);
+        String pdfFilename = "awesrdtfyghu";
 
-        btnScroll.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-               /* Intent intent = new Intent(MainActivity.this,ScrollActivity.class);
-                startActivity(intent);*/
-            }
-        });
-
-        btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d("size"," "+llPdf.getWidth() +"  "+llPdf.getWidth());
-                bitmap = loadBitmapFromView(llPdf, llPdf.getWidth(), llPdf.getHeight());
-                createPdf();
-            }
-        });
+        createPDF(pdfFilename);
 
     }
 
-    public static Bitmap loadBitmapFromView(View v, int width, int height) {
-        Bitmap b = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(b);
-        v.draw(c);
+    private void createPDF (String pdfFilename){
 
-        return b;
-    }
+        Document doc = new Document();
+        PdfWriter docWriter = null;
 
-    private void createPdf(){
-        WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        //  Display display = wm.getDefaultDisplay();
-        DisplayMetrics displaymetrics = new DisplayMetrics();
-        this.getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
-        float hight = displaymetrics.heightPixels ;
-        float width = displaymetrics.widthPixels ;
+        DecimalFormat df = new DecimalFormat("0.00");
 
-        int convertHighet = (int) hight, convertWidth = (int) width;
-
-//        Resources mResources = getResources();
-//        Bitmap bitmap = BitmapFactory.decodeResource(mResources, R.drawable.screenshot);
-
-        PdfDocument document = new PdfDocument();
-        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(convertWidth, convertHighet, 1).create();
-        PdfDocument.Page page = document.startPage(pageInfo);
-
-        Canvas canvas = page.getCanvas();
-
-        Paint paint = new Paint();
-        canvas.drawPaint(paint);
-
-        bitmap = Bitmap.createScaledBitmap(bitmap, convertWidth, convertHighet, true);
-
-        paint.setColor(Color.BLUE);
-        canvas.drawBitmap(bitmap, 0, 0 , null);
-        document.finishPage(page);
-
-        // write the document content
-        String targetPdf = "/sdcard/pdffromlayout.pdf";
-        File filePath;
-        filePath = new File(targetPdf);
         try {
-            document.writeTo(new FileOutputStream(filePath));
 
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Something wrong: " + e.toString(), Toast.LENGTH_LONG).show();
+            //special font sizes
+            Font bfBold12 = new Font(Font.FontFamily.TIMES_ROMAN, 12, Font.BOLD, new BaseColor(0, 0, 0));
+            Font bf12 = new Font(Font.FontFamily.TIMES_ROMAN, 12);
+
+            File docsFolder = new File(Environment.getExternalStorageDirectory() + "/Documents");
+            if (!docsFolder.exists()) {
+                docsFolder.mkdir();
+            }
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+
+            // SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+            //  SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+            String millisInString = dateFormat.format(new Date());
+
+             File pdfFile = new File(docsFolder.getAbsolutePath(), "BILL_PDF"+millisInString+".pdf");
+
+            //file path
+            //File docsFolder = new File(Environment.getExternalStorageDirectory() + "/Documents/");
+            String path = pdfFile + pdfFilename;
+            docWriter = PdfWriter.getInstance(doc , new FileOutputStream(pdfFile));
+
+            //document header attributes
+            doc.addAuthor("betterThanZero");
+            doc.addCreationDate();
+            doc.addProducer();
+            doc.addCreator("MySampleCode.com");
+            doc.addTitle("Report with Column Headings");
+            doc.setPageSize(PageSize.LETTER);
+
+            //open document
+            doc.open();
+
+            //create a paragraph
+            Paragraph paragraph = new Paragraph("iText ® is a library that allows you to create and " +
+                    "manipulate PDF documents. It enables developers looking to enhance web and other " +
+                    "applications with dynamic PDF document generation and/or manipulation.");
+
+
+            //specify column widths
+            float[] columnWidths = {1.5f, 2f, 5f, 2f};
+            //create PDF table with the given widths
+            PdfPTable table = new PdfPTable(columnWidths);
+            // set table width a percentage of the page width
+            table.setWidthPercentage(90f);
+
+            //insert column headings
+            insertCell(table, "Order No", Element.ALIGN_RIGHT, 1, bfBold12);
+            insertCell(table, "Account No", Element.ALIGN_LEFT, 1, bfBold12);
+            insertCell(table, "Account Name", Element.ALIGN_LEFT, 1, bfBold12);
+            insertCell(table, "Order Total", Element.ALIGN_RIGHT, 1, bfBold12);
+            table.setHeaderRows(1);
+
+            //insert an empty row
+            insertCell(table, "", Element.ALIGN_LEFT, 4, bfBold12);
+            //create section heading by cell merging
+            insertCell(table, "New York Orders ...", Element.ALIGN_LEFT, 4, bfBold12);
+            double orderTotal, total = 0;
+
+            //just some random data to fill
+            for(int x=1; x<5; x++){
+
+                insertCell(table, "10010" + x, Element.ALIGN_RIGHT, 1, bf12);
+                insertCell(table, "ABC00" + x, Element.ALIGN_LEFT, 1, bf12);
+                insertCell(table, "This is Customer Number ABC00" + x, Element.ALIGN_LEFT, 1, bf12);
+
+                orderTotal = Double.valueOf(df.format(Math.random() * 1000));
+                total = total + orderTotal;
+                insertCell(table, df.format(orderTotal), Element.ALIGN_RIGHT, 1, bf12);
+
+            }
+            //merge the cells to create a footer for that section
+            insertCell(table, "New York Total...", Element.ALIGN_RIGHT, 3, bfBold12);
+            insertCell(table, df.format(total), Element.ALIGN_RIGHT, 1, bfBold12);
+
+            //repeat the same as above to display another location
+            insertCell(table, "", Element.ALIGN_LEFT, 4, bfBold12);
+            insertCell(table, "California Orders ...", Element.ALIGN_LEFT, 4, bfBold12);
+            orderTotal = 0;
+
+            for(int x=1; x<7; x++){
+
+                insertCell(table, "20020" + x, Element.ALIGN_RIGHT, 1, bf12);
+                insertCell(table, "XYZ00" + x, Element.ALIGN_LEFT, 1, bf12);
+                insertCell(table, "This is Customer Number XYZ00" + x, Element.ALIGN_LEFT, 1, bf12);
+
+                orderTotal = Double.valueOf(df.format(Math.random() * 1000));
+                total = total + orderTotal;
+                insertCell(table, df.format(orderTotal), Element.ALIGN_RIGHT, 1, bf12);
+
+            }
+            insertCell(table, "California Total...", Element.ALIGN_RIGHT, 3, bfBold12);
+            insertCell(table, df.format(total), Element.ALIGN_RIGHT, 1, bfBold12);
+
+            //add the PDF table to the paragraph
+            paragraph.add(table);
+            // add the paragraph to the document
+            doc.add(paragraph);
+
         }
-
-        // close the document
-        document.close();
-        Toast.makeText(this, "PDF is created!!!", Toast.LENGTH_SHORT).show();
-
-        openGeneratedPDF();
-
+        catch (DocumentException dex)
+        {
+            dex.printStackTrace();
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+        }
+        finally
+        {
+            if (doc != null){
+                //close the document
+                doc.close();
+            }
+            if (docWriter != null){
+                //close the writer
+                docWriter.close();
+            }
+        }
     }
 
-    private void openGeneratedPDF(){
-        File file = new File("/sdcard/pdffromlayout.pdf");
-        String abcd = String.valueOf(file);
-        if (file.exists()) {
-            Uri path = Uri.fromFile(file);
+    private void insertCell(PdfPTable table, String text, int align, int colspan, Font font){
 
-            /* Uri path = FileProvider.getUriForFile(HomeActivity.this,
-                    BuildConfig.APPLICATION_ID + ".provider",
-                    file);
-*/
-            /*
-            String tmp_str = path.toString();
-            String excel_url = tmp_str.substring(7);
-
-            File fileNew=new File(excel_url);
-            Uri pathnew=Uri.fromFile(fileNew);
-*/
-
-            Intent pdfIntent = new Intent(Intent.ACTION_VIEW);
-            pdfIntent.setDataAndType(path, "application/pdf");
-            pdfIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-
-            try {
-                startActivity(pdfIntent);
-            } catch (ActivityNotFoundException e) {
-                Toast.makeText(getApplicationContext(), "Please install PDF app to view the file.",
-                        Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-
-                Toast.makeText(getApplicationContext(), "No view available to open this PDF file or Something went wrong"+"\n\n"+"Check In"+abcd,
-                        Toast.LENGTH_LONG).show();
-                e.printStackTrace();
-            }
+        //create a new cell with the specified Text and Font
+        PdfPCell cell = new PdfPCell(new Phrase(text.trim(), font));
+        //set the cell alignment
+        cell.setHorizontalAlignment(align);
+        //set the cell column span in case you want to merge two or more cells
+        cell.setColspan(colspan);
+        //in case there is no text and you wan to create an empty row
+        if(text.trim().equalsIgnoreCase("")){
+            cell.setMinimumHeight(10f);
         }
-        /*File file = new File("/sdcard/pdffromlayout.pdf");
-        if (file.exists())
-        {
-            Intent intent=new Intent(Intent.ACTION_VIEW);
-            Uri uri = Uri.fromFile(file);
-            intent.setDataAndType(uri, "application/pdf");
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        //add the call to the table
+        table.addCell(cell);
 
-            try
-            {
-                startActivity(intent);
-            }
-            catch(ActivityNotFoundException e)
-            {
-                Toast.makeText(MainActivity.this, "No Application available to view pdf", Toast.LENGTH_LONG).show();
-            }
-        }*/
     }
 
 }
+
